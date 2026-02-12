@@ -8,66 +8,33 @@ on:
 permissions:
   issues: write
   contents: read
+  models: read
+
 
 jobs:
   joke:
     name: Rate Joke
     runs-on: ubuntu-latest
-    # Nur triggern wenn Kommentar mit /rate-joke startet
-    if: ${{ github.event.comment.body != '' && contains(github.event.comment.body, '/rate-joke') }}
-    
     steps:
       - uses: actions/checkout@v6
-
-      - name: Extract joke text
-        id: extract
-        run: |
-          # Entferne "/rate-joke" vom Anfang
-          JOKE="${{ github.event.comment.body }}"
-          JOKE="${JOKE#/rate-joke}"
-          echo "joke=$JOKE" >> $GITHUB_OUTPUT
-
       - name: Rate Joke
         id: rate-joke
         uses: ./
         with:
-          joke: ${{ steps.extract.outputs.joke }}
+          joke: ${{ github.event.comment.body }}
           token: ${{ secrets.GITHUB_TOKEN }}
-        continue-on-error: true  # Workflow crashed nicht bei Fehler
-
-      - name: Add rating comment
-        if: steps.rate-joke.outcome == 'success' && fromJSON(steps.rate-joke.outputs.result).is_joke == true
+      - name: Update comment
+        if: fromJSON(steps.rate-joke.outputs.result).is_joke == true
         uses: peter-evans/create-or-update-comment@v5
         with:
-          issue-number: ${{ github.event.issue.number }}
-          # NEUER Kommentar statt Original ersetzen
+          comment-id: ${{ github.event.comment.id }}
+          reactions: laugh
+          edit-mode: replace
           body: |
             ## 🤖 AI Joke Rating Results
-            
-            **Original joke by @${{ github.event.comment.user.login }}:**
-            > ${{ steps.extract.outputs.joke }}
+
+            **Your joke:**
+            > ${{ github.event.comment.body }}
 
             **AI Analysis:**
-            - **Score:** ${{ fromJSON(steps.rate-joke.outputs.result).score }}/10
-            - **Humor Type:** ${{ fromJSON(steps.rate-joke.outputs.result).humor_type }}
-            - **Feedback:** ${{ fromJSON(steps.rate-joke.outputs.result).feedback }}
-          reactions: '+1,laugh'
-
-      - name: Handle non-joke
-        if: steps.rate-joke.outcome == 'success' && fromJSON(steps.rate-joke.outputs.result).is_joke == false
-        uses: peter-evans/create-or-update-comment@v5
-        with:
-          issue-number: ${{ github.event.issue.number }}
-          body: |
-            Sorry @${{ github.event.comment.user.login }}, this doesn't seem to be a joke! 😅
-            Try again with `/rate-joke <your joke here>`
-          reactions: 'confused'
-
-      - name: Handle error
-        if: steps.rate-joke.outcome == 'failure'
-        uses: peter-evans/create-or-update-comment@v5
-        with:
-          issue-number: ${{ github.event.issue.number }}
-          body: |
-            ❌ Oops! Something went wrong while rating the joke. Please try again later.
-          reactions: 'eyes'
+            ${{ steps.rate-joke.outputs.result }}
