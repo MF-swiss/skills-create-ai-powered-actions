@@ -14,7 +14,7 @@ jobs:
     name: Rate Joke
     runs-on: ubuntu-latest
     # Nur triggern wenn Kommentar mit /rate-joke startet
-    if: startsWith(github.event.comment.body, '/rate-joke')
+    if: contains(github.event.comment.body, '/rate-joke')
     
     steps:
       - uses: actions/checkout@v6
